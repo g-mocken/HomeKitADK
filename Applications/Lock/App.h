@@ -83,6 +83,39 @@ HAPError HandleLockManagementVersionRead(
         size_t maxBytes,
         void* _Nullable context);
 
+
+
+/**
+ * Handle read request to the 'ProgrammableSwitchEvent' characteristic of the Doorbell service.
+ */
+HAP_RESULT_USE_CHECK
+HAPError HandleProgrammableSwitchEventRead(
+        HAPAccessoryServerRef* server,
+        const HAPUInt8CharacteristicReadRequest* request,
+        uint8_t* value,
+        void* _Nullable context);
+
+/**
+ * Handle read request to the 'Volume' characteristic of the Doorbell service.
+ */
+HAP_RESULT_USE_CHECK
+HAPError HandleVolumeRead(
+        HAPAccessoryServerRef* server,
+        const HAPUInt8CharacteristicReadRequest* request,
+        uint8_t* value,
+        void* _Nullable context);
+
+/**
+ * Handle write request to the 'Volume' characteristic of the Doorbell service.
+ */
+HAP_RESULT_USE_CHECK
+HAPError HandleVolumeWrite(
+        HAPAccessoryServerRef* server,
+        const HAPUInt8CharacteristicWriteRequest* request,
+        uint8_t value,
+        void* _Nullable context);
+
+
 /**
  * Initialize the application.
  */

@@ -2983,6 +2983,30 @@ extern const HAPUUID kHAPCharacteristicType_ActiveIdentifier;
 extern const HAPUUID kHAPCharacteristicType_ADKVersion;
 /**@}*/
 
+
+
+/**
+ * Volume.
+ *
+ * This characteristic describes the volume of a doorbell.
+ *
+ * - Format: UInt8
+ * - Permissions: Paired Read, Paired Write, Notify
+ * - Minimum Value: 0
+ * - Maximum Value: 100
+ * - Step Value: 1
+ * - Unit: Percentage
+ *
+ * @see HomeKit Accessory Protocol Specification R2
+ *      Section 9.127 Volume
+ */
+/**@{*/
+#define kHAPCharacteristicDebugDescription_Volume "volume"
+
+extern const HAPUUID kHAPCharacteristicType_Volume;
+/**@}*/
+
+
 #if __has_feature(nullability)
 #pragma clang assume_nonnull end
 #endif

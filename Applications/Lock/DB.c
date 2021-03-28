@@ -46,7 +46,12 @@
 #define kIID_LockManagementLockControlPoint ((uint64_t) 0x0042)
 #define kIID_LockManagementVersion          ((uint64_t) 0x0043)
 
-HAP_STATIC_ASSERT(kAttributeCount == 9 + 3 + 5 + 5 + 4, AttributeCount_mismatch);
+#define kIID_Doorbell                			((uint64_t) 0x0050)
+#define kIID_DoorbellProgrammableSwitchEvent 	((uint64_t) 0x0051)
+#define kIID_DoorbellName        			    ((uint64_t) 0x0052)
+#define kIID_DoorbellVolume 					((uint64_t) 0x0053)
+
+HAP_STATIC_ASSERT(kAttributeCount == 9 + 3 + 5 + 5 + 4 + 4, AttributeCount_mismatch);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -608,3 +613,103 @@ const HAPService lockManagementService = {
                                                             &lockManagementVersionCharacteristic,
                                                             NULL }
 };
+
+
+
+
+
+
+//----------------------------------------------------------------------------------------------------------------------
+
+/**
+ * The 'programmableSwitchEvent' characteristic of the Doorbell service.
+ */
+const HAPUInt8Characteristic programmableSwitchEventCharacteristic = {
+    .format = kHAPCharacteristicFormat_UInt8,
+    .iid = kIID_DoorbellProgrammableSwitchEvent,
+    .characteristicType = &kHAPCharacteristicType_ProgrammableSwitchEvent,
+    .debugDescription = kHAPCharacteristicDebugDescription_ProgrammableSwitchEvent,
+    .manufacturerDescription = NULL,
+    .properties = { .readable = true,
+                    .writable = false,
+                    .supportsEventNotification = true,
+                    .hidden = false,
+                    .requiresTimedWrite = false,
+                    .supportsAuthorizationData = false,
+                    .ip = { .controlPoint = true },
+                    .ble = { .supportsBroadcastNotification = false,
+                             .supportsDisconnectedNotification = false,
+                             .readableWithoutSecurity = false,
+                             .writableWithoutSecurity = false } },
+    .constraints = { 	.minimumValue = 0,
+    					.maximumValue = 2,
+						.stepValue = 1 },
+    .callbacks = { .handleRead = HandleProgrammableSwitchEventRead, .handleWrite = NULL }
+};
+
+/**
+ * The 'Volume' characteristic of the Doorbell service.
+ */
+const HAPUInt8Characteristic doorbellVolumeCharacteristic = {
+    .format = kHAPCharacteristicFormat_UInt8,
+    .iid = kIID_DoorbellVolume,
+    .characteristicType = &kHAPCharacteristicType_Volume,
+    .debugDescription = kHAPCharacteristicDebugDescription_Volume,
+    .manufacturerDescription = NULL,
+    .properties = { .readable = true,
+                    .writable = true,
+                    .supportsEventNotification = true,
+                    .hidden = false,
+                    .requiresTimedWrite = false,
+                    .supportsAuthorizationData = false,
+                    .ip = { .controlPoint = true },
+                    .ble = { .supportsBroadcastNotification = false,
+                             .supportsDisconnectedNotification = false,
+                             .readableWithoutSecurity = false,
+                             .writableWithoutSecurity = false } },
+    .constraints = { 	.minimumValue = 0,
+    					.maximumValue = 100,
+						.stepValue = 1 },
+	.units = kHAPCharacteristicUnits_Percentage,
+    .callbacks = { .handleRead = HandleVolumeRead, .handleWrite = HandleVolumeWrite }
+};
+
+
+
+/**
+ * The 'Name' characteristic of the Doorbell service.
+ */
+static const HAPStringCharacteristic doorbellNameCharacteristic = {
+    .format = kHAPCharacteristicFormat_String,
+    .iid = kIID_DoorbellName,
+    .characteristicType = &kHAPCharacteristicType_Name,
+    .debugDescription = kHAPCharacteristicDebugDescription_Name,
+    .manufacturerDescription = NULL,
+    .properties = { .readable = true,
+                    .writable = false,
+                    .supportsEventNotification = false,
+                    .hidden = false,
+                    .requiresTimedWrite = false,
+                    .supportsAuthorizationData = false,
+                    .ip = { .controlPoint = false, .supportsWriteResponse = false },
+                    .ble = { .supportsBroadcastNotification = false,
+                             .supportsDisconnectedNotification = false,
+                             .readableWithoutSecurity = false,
+                             .writableWithoutSecurity = false } },
+    .constraints = { .maxLength = 64 },
+    .callbacks = { .handleRead = HAPHandleNameRead, .handleWrite = NULL }
+};
+/**
+ * The Doorbell service that contains the above characteristics.
+ */
+const HAPService doorbellService = {
+    .iid = kIID_Doorbell,
+    .serviceType = &kHAPServiceType_Doorbell,
+    .debugDescription = kHAPServiceDebugDescription_Doorbell,
+    .name = "Doorbell",
+    .properties = { .primaryService = true, .hidden = false, .ble = { .supportsConfiguration = false } },
+    .linkedServices = (uint16_t const[]) { 0 },
+    .characteristics = (const HAPCharacteristic* const[]) { &programmableSwitchEventCharacteristic, &doorbellNameCharacteristic,
+    	&doorbellVolumeCharacteristic, NULL }
+};
+

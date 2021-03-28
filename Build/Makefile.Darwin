@@ -2,7 +2,7 @@ TARGET_FLAVOR ?= macosx
 
 XCODE_SDK_macosx := macosx
 XCODE_TOOLCHAIN_macosx := XcodeDefault
-CFLAGS_macosx := -mmacosx-version-min=10.14
+CFLAGS_macosx := -mmacosx-version-min=10.15
 
 XCODE_SDK_ios := iphoneos13.0.internal
 XCODE_TOOLCHAIN_ios := iOS13.0

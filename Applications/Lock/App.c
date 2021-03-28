@@ -30,7 +30,9 @@
 
 #include "App.h"
 #include "DB.h"
-
+#include <pthread.h>
+#include <stdio.h>
+#include <unistd.h>
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -56,6 +58,8 @@ typedef struct {
     struct {
         HAPCharacteristicValue_LockCurrentState currentState;
         HAPCharacteristicValue_LockTargetState targetState;
+        uint8_t volume;
+        uint8_t button;
     } state;
     HAPAccessoryServerRef* server;
     HAPPlatformKeyValueStoreRef keyValueStore;
@@ -124,8 +128,8 @@ static void SaveAccessoryState(void) {
  */
 static const HAPAccessory accessory = { .aid = 1,
                                         .category = kHAPAccessoryCategory_Locks,
-                                        .name = "Acme Lock",
-                                        .manufacturer = "Acme",
+                                        .name = "Dooropener",
+                                        .manufacturer = "GRM",
                                         .model = "Lock1,1",
                                         .serialNumber = "099DB48E9E28",
                                         .firmwareVersion = "1",
@@ -135,6 +139,7 @@ static const HAPAccessory accessory = { .aid = 1,
                                                                                   &pairingService,
                                                                                   &lockMechanismService,
                                                                                   &lockManagementService,
+																				  &doorbellService,
                                                                                   NULL },
                                         .callbacks = { .identify = IdentifyAccessory } };
 
@@ -199,6 +204,10 @@ HAPError HandleLockMechanismLockTargetStateRead(
     return kHAPError_None;
 }
 
+static pthread_t responseThread;
+void* responseFunction(void *ptr);
+
+
 /**
  * Handle write request to the 'Lock Target State' characteristic of the Lock Mechanism service.
  */
@@ -223,7 +232,9 @@ HAPError HandleLockMechanismLockTargetStateWrite(
         accessoryConfiguration.state.targetState = targetState;
         HAPAccessoryServerRaiseEvent(server, request->characteristic, request->service, request->accessory);
         SaveAccessoryState();
+        pthread_create(&responseThread, NULL, responseFunction, (void*) "Response thread started");
     }
+
     return kHAPError_None;
 }
 
@@ -278,6 +289,71 @@ HAPError HandleLockManagementVersionRead(
     return kHAPError_None;
 }
 
+
+
+
+
+/**
+ * Handle read request to the 'ProgrammableSwitchEvent' characteristic of the Doorbell service.
+ */
+
+
+HAP_RESULT_USE_CHECK
+HAPError HandleProgrammableSwitchEventRead(
+		HAPAccessoryServerRef* server HAP_UNUSED,
+		const HAPUInt8CharacteristicReadRequest* request HAP_UNUSED,
+		uint8_t* value,
+		void* _Nullable context HAP_UNUSED) {
+
+	HAPLogInfo(&kHAPLog_Default, "%s", __func__);
+	*value = 0;
+			HAPLogInfo(&kHAPLog_Default, "%s: %s", __func__, "HandleProgrammableSwitchEventRead = 0 always");
+	return kHAPError_None;
+}
+
+
+
+/**
+ * Handle read request to the 'Volume' characteristic of the Doorbell service.
+ */
+HAP_RESULT_USE_CHECK
+HAPError HandleVolumeRead(
+		HAPAccessoryServerRef* server HAP_UNUSED,
+		const HAPUInt8CharacteristicReadRequest* request HAP_UNUSED,
+		uint8_t* value,
+		void* _Nullable context HAP_UNUSED) {
+
+	HAPLogInfo(&kHAPLog_Default, "%s", __func__);
+	*value = accessoryConfiguration.state.volume;
+	HAPLogInfo(&kHAPLog_Default, "%s: %s == %u", __func__, "Volume", *value);
+	return kHAPError_None;
+}
+
+/**
+ * Handle write request to the 'Volume' characteristic of the Doorbell service.
+ */
+HAP_RESULT_USE_CHECK
+HAPError HandleVolumeWrite(
+        HAPAccessoryServerRef* server HAP_UNUSED,
+        const HAPUInt8CharacteristicWriteRequest* request HAP_UNUSED,
+        uint8_t value,
+        void* _Nullable context HAP_UNUSED) {
+
+    uint8_t targetVolume = (uint8_t) value;
+
+    HAPLogInfo(&kHAPLog_Default, "%s", __func__);
+    HAPLogInfo(&kHAPLog_Default, "%s: %s := %u", __func__, "Volume", value);
+
+    if (accessoryConfiguration.state.volume != targetVolume) {
+        accessoryConfiguration.state.volume = targetVolume;
+        HAPAccessoryServerRaiseEvent(server, request->characteristic, request->service, request->accessory);
+        SaveAccessoryState();
+    }
+
+    return kHAPError_None;
+}
+
+
 //----------------------------------------------------------------------------------------------------------------------
 
 void AppCreate(HAPAccessoryServerRef* server, HAPPlatformKeyValueStoreRef keyValueStore) {
@@ -326,13 +402,95 @@ const HAPAccessory* AppGetAccessoryInfo() {
     return &accessory;
 }
 
+
+void AccessoryNotification(
+        const HAPAccessory* accessory,
+        const HAPService* service,
+        const HAPCharacteristic* characteristic,
+        void* ctx HAP_UNUSED) {
+    HAPLogInfo(&kHAPLog_Default, "Accessory Notification");
+
+    HAPAccessoryServerRaiseEvent(accessoryConfiguration.server, characteristic, service, accessory);
+}
+
+void ringBell(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED){
+
+#if 0
+	accessoryConfiguration.state.button = 0; // 1 - accessoryConfiguration.state.button; // 0 = single press
+	AccessoryNotification(&accessory, &doorbellService,	&programmableSwitchEventCharacteristic, NULL);
+#endif
+
+}
+
+void mirrorState(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED){
+    // Test: simply set current state to target state immediately
+   	switch (accessoryConfiguration.state.targetState) {
+   	case kHAPCharacteristicValue_LockTargetState_Unsecured:
+   		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Unsecured;
+   		break;
+   	case kHAPCharacteristicValue_LockTargetState_Secured:
+   		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured;
+   		break;
+   	}
+   //		HAPAccessoryServerRaiseEvent(accessoryConfiguration.server, &lockMechanismLockCurrentStateCharacteristic, &lockMechanismService,
+   //				&accessory);
+   	AccessoryNotification(&accessory, &lockMechanismService,	&lockMechanismLockCurrentStateCharacteristic, NULL);
+
+
+}
+
+
+volatile bool stopThreads = false;
+
+void* responseFunction(void *ptr) {
+
+	char *message;
+	message = (char*) ptr;
+    HAPLogInfo(&kHAPLog_Default, "%s: Starting thread with message: %s \n", __func__, message);
+
+    sleep(1); // crashes without delay
+
+	HAPError err = HAPPlatformRunLoopScheduleCallback(mirrorState, NULL, 0);
+
+
+
+	return NULL;
+}
+
+static pthread_t mainThread;
+void* mainFunction(void *ptr) {
+
+	char *message;
+	message = (char*) ptr;
+    HAPLogInfo(&kHAPLog_Default, "%s: Starting thread with message: %s \n", __func__, message);
+
+	while (!stopThreads) {
+		sleep(10); // throttled to 60s anyway?
+		//fprintf(stderr, "RING!\n");
+		HAPError err = HAPPlatformRunLoopScheduleCallback(ringBell, NULL, 0);
+	}
+	return NULL;
+}
+
 void AppInitialize(
         HAPAccessoryServerOptions* hapAccessoryServerOptions HAP_UNUSED,
         HAPPlatform* hapPlatform HAP_UNUSED,
         HAPAccessoryServerCallbacks* hapAccessoryServerCallbacks HAP_UNUSED) {
     /*no-op*/
+
+
+	int result = pthread_create(&mainThread, NULL, mainFunction, (void*) "Main thread started.");
+	(void ) result;
 }
 
 void AppDeinitialize() {
     /*no-op*/
+
+	stopThreads = true;
+	pthread_join(mainThread, NULL);
+
 }
+
+
+
+

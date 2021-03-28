@@ -23,7 +23,7 @@ extern "C" {
 /**
  * Total number of services and characteristics contained in the accessory.
  */
-#define kAttributeCount ((size_t) 26)
+#define kAttributeCount ((size_t) 26 + 4)
 
 /**
  * HomeKit Accessory Information service.
@@ -72,6 +72,12 @@ extern const HAPUInt8Characteristic lockMechanismLockTargetStateCharacteristic;
  */
 extern const HAPService lockManagementService;
 
+
+/**
+ * Doorbell service.
+ */
+extern const HAPService doorbellService;
+
 /**
  * The 'Control Point' characteristic of the Lock Management service.
  */
@@ -81,6 +87,13 @@ extern const HAPTLV8Characteristic lockManagementLockControlPointCharacteristic;
  * The 'Version' characteristic of the Lock Management service.
  */
 extern const HAPStringCharacteristic lockManagementVersionCharacteristic;
+
+
+/**
+ * The 'programmableSwitchEvent' characteristic of the Doorbell service.
+ */
+extern const HAPUInt8Characteristic programmableSwitchEventCharacteristic;
+
 
 #if __has_feature(nullability)
 #pragma clang assume_nonnull end
