@@ -210,6 +210,8 @@ HAPError HandleLockMechanismLockTargetStateRead(
 static pthread_t responseThread;
 void* responseFunction(void *ptr);
 
+ void timerCallback(HAPPlatformTimerRef timer, void* _Nullable context);
+
 
 /**
  * Handle write request to the 'Lock Target State' characteristic of the Lock Mechanism service.
@@ -219,7 +221,7 @@ HAPError HandleLockMechanismLockTargetStateWrite(
         HAPAccessoryServerRef* server,
         const HAPUInt8CharacteristicWriteRequest* request,
         uint8_t value,
-        void* _Nullable context HAP_UNUSED) {
+        void* _Nullable context) {
     HAPLogInfo(&kHAPLog_Default, "%s", __func__);
     HAPCharacteristicValue_LockTargetState targetState = (HAPCharacteristicValue_LockTargetState) value;
     switch (targetState) {
@@ -235,7 +237,20 @@ HAPError HandleLockMechanismLockTargetStateWrite(
         accessoryConfiguration.state.targetState = targetState;
         HAPAccessoryServerRaiseEvent(server, request->characteristic, request->service, request->accessory);
         SaveAccessoryState();
-        pthread_create(&responseThread, NULL, responseFunction, (void*) "Response thread started");
+
+
+//        pthread_create(&responseThread, NULL, responseFunction, (void*) "Response thread started");
+        HAPPlatformTimerRef myTimer;
+        HAPTime deadline = HAPPlatformClockGetCurrent() + 1000 * HAPMillisecond;
+
+        HAPError err = HAPPlatformTimerRegister(
+                &myTimer, deadline, timerCallback, context);
+        if (err) {
+            HAPAssert(err == kHAPError_OutOfResources);
+            HAPLogError(&kHAPLog_Default, "Not enough timers available to register custom timer.");
+            HAPFatalError();
+        }
+
     }
 
     return kHAPError_None;
@@ -471,6 +486,13 @@ void mirrorState(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUS
    //				&accessory);
    	AccessoryNotification(&accessory, &lockMechanismService,	&lockMechanismLockCurrentStateCharacteristic, NULL);
 
+
+}
+
+void timerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void* _Nullable context HAP_UNUSED){
+	    HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback with message \n", __func__);
+
+		HAPError err = HAPPlatformRunLoopScheduleCallback(mirrorState, NULL, 0);
 
 }
 
