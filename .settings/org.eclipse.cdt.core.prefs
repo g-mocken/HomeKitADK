@@ -1,0 +1,17 @@
+eclipse.preferences.version=1
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638.1122481185/BUILD_TYPE/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638.1122481185/BUILD_TYPE/operation=append
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638.1122481185/BUILD_TYPE/value=Release
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638.1122481185/LOG_LEVEL/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638.1122481185/LOG_LEVEL/operation=replace
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638.1122481185/LOG_LEVEL/value=0
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638.1122481185/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638.1122481185/appendContributed=true
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638/BUILD_TYPE/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638/BUILD_TYPE/operation=replace
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638/BUILD_TYPE/value=Debug
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638/LOG_LEVEL/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638/LOG_LEVEL/operation=replace
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638/LOG_LEVEL/value=2
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.macosx.base.421725638/appendContributed=true
