@@ -44,11 +44,11 @@ HAPError HAPPlatformTimerRegister(
         dispatch_sync(dispatch_get_main_queue(), ^{
             t = scheduleTimer(deadline, callback, context);
 
-            printf("timer dispatch register %p\n", t);
+            //printf("timer dispatch register %p\n", t);
         });
     } else {
         t = scheduleTimer(deadline, callback, context);
-        printf("timer register %p\n", t);
+        //printf("timer register %p\n", t);
     }
 
     *timer = (HAPPlatformTimerRef)(__bridge_retained void*) t;
