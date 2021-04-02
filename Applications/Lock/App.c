@@ -32,6 +32,7 @@
 #include "DB.h"
 #include <pthread.h>
 #include <stdio.h>
+#include <inttypes.h>
 #include <unistd.h>
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -60,6 +61,7 @@ typedef struct {
         HAPCharacteristicValue_LockTargetState targetState;
         uint8_t volume;
         uint8_t button;
+        uint32_t autoSecurityTimeout;
     } state;
     HAPAccessoryServerRef* server;
     HAPPlatformKeyValueStoreRef keyValueStore;
@@ -99,6 +101,7 @@ static void LoadAccessoryState(void) {
             HAPLogError(&kHAPLog_Default, "Unexpected app state found in key-value store. Resetting to default.");
         }
         HAPRawBufferZero(&accessoryConfiguration.state, sizeof accessoryConfiguration.state);
+        accessoryConfiguration.state.autoSecurityTimeout = 2; // non-zero default: 2s
     }
 }
 
@@ -290,7 +293,39 @@ HAPError HandleLockManagementVersionRead(
 }
 
 
+/**
+ * Handle write request to the 'AutoSecurityTimeout' characteristic of the Lock Management service.
+ */
+HAP_RESULT_USE_CHECK
+HAPError HandleLockManagementAutoSecurityTimeoutWrite(
+        HAPAccessoryServerRef* server HAP_UNUSED,
+        const HAPUInt32CharacteristicWriteRequest* request HAP_UNUSED,
+        uint32_t value,
+        void* _Nullable context HAP_UNUSED) {
+    HAPLogInfo(&kHAPLog_Default, "%s: new timeout = %" PRIu32, __func__, value);
 
+    if (accessoryConfiguration.state.autoSecurityTimeout != value) {
+        accessoryConfiguration.state.autoSecurityTimeout = value;
+        SaveAccessoryState();
+    }
+    return kHAPError_None;
+}
+
+/**
+ * Handle read request to the 'AutoSecurityTimeout' characteristic of the Lock Management service.
+ */
+HAP_RESULT_USE_CHECK
+HAPError HandleLockManagementAutoSecurityTimeoutRead(
+        HAPAccessoryServerRef* server HAP_UNUSED,
+        const HAPUInt32CharacteristicReadRequest* request HAP_UNUSED,
+        uint32_t * value,
+        void* _Nullable context HAP_UNUSED) {
+
+    *value = accessoryConfiguration.state.autoSecurityTimeout;
+
+    HAPLogInfo(&kHAPLog_Default, "%s: current timeout = %" PRIu32, __func__, value);
+    return kHAPError_None;
+}
 
 
 /**

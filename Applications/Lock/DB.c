@@ -45,13 +45,14 @@
 #define kIID_LockManagementServiceSignature ((uint64_t) 0x0041)
 #define kIID_LockManagementLockControlPoint ((uint64_t) 0x0042)
 #define kIID_LockManagementVersion          ((uint64_t) 0x0043)
+#define kIID_LockManagementAutoSecurityTimeout  ((uint64_t) 0x0044)
 
 #define kIID_Doorbell                			((uint64_t) 0x0050)
 #define kIID_DoorbellProgrammableSwitchEvent 	((uint64_t) 0x0051)
 #define kIID_DoorbellName        			    ((uint64_t) 0x0052)
 #define kIID_DoorbellVolume 					((uint64_t) 0x0053)
 
-HAP_STATIC_ASSERT(kAttributeCount == 9 + 3 + 5 + 5 + 4 + 4, AttributeCount_mismatch);
+HAP_STATIC_ASSERT(kAttributeCount == 9 + 3 + 5 + 5 + 5 + 4, AttributeCount_mismatch);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -598,6 +599,33 @@ const HAPStringCharacteristic lockManagementVersionCharacteristic = {
     .callbacks = { .handleRead = HandleLockManagementVersionRead, .handleWrite = NULL }
 };
 
+
+/**
+ * The 'AutoSecurityTimeout' characteristic of the Lock Management service.
+ */
+const HAPUInt32Characteristic lockManagementAutoSecurityTimeoutCharacteristic = {
+    .format = kHAPCharacteristicFormat_UInt32,
+    .iid = kIID_LockManagementAutoSecurityTimeout,
+    .characteristicType = &kHAPCharacteristicType_LockManagementAutoSecurityTimeout,
+    .debugDescription = kHAPCharacteristicDebugDescription_LockManagementAutoSecurityTimeout,
+    .manufacturerDescription = NULL,
+    .properties = { .readable = true,
+                    .writable = true,
+                    .supportsEventNotification = true,
+                    .hidden = false,
+                    .requiresTimedWrite = false,
+                    .supportsAuthorizationData = false,
+                    .ip = { .controlPoint = false, .supportsWriteResponse = false },
+                    .ble = { .supportsBroadcastNotification = false,
+                             .supportsDisconnectedNotification = false,
+                             .readableWithoutSecurity = false,
+                             .writableWithoutSecurity = false } },
+    .constraints = {  	.minimumValue = 0,
+            			.maximumValue = 60,
+						.stepValue = 1 },
+    .callbacks = { .handleRead = HandleLockManagementAutoSecurityTimeoutRead, .handleWrite = HandleLockManagementAutoSecurityTimeoutWrite }
+};
+
 /**
  * The Lock Management service that contains the above characteristics.
  */
@@ -611,6 +639,7 @@ const HAPService lockManagementService = {
     .characteristics = (const HAPCharacteristic* const[]) { &lockManagementServiceSignatureCharacteristic,
                                                             &lockManagementLockControlPointCharacteristic,
                                                             &lockManagementVersionCharacteristic,
+															&lockManagementAutoSecurityTimeoutCharacteristic,
                                                             NULL }
 };
 

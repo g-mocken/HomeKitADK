@@ -84,6 +84,18 @@ HAPError HandleLockManagementVersionRead(
         void* _Nullable context);
 
 
+HAPError HandleLockManagementAutoSecurityTimeoutRead(
+        HAPAccessoryServerRef* server HAP_UNUSED,
+        const HAPUInt32CharacteristicReadRequest* request HAP_UNUSED,
+        uint32_t * value,
+        void* _Nullable context HAP_UNUSED);
+
+HAPError HandleLockManagementAutoSecurityTimeoutWrite(
+        HAPAccessoryServerRef* server HAP_UNUSED,
+        const HAPUInt32CharacteristicWriteRequest* request HAP_UNUSED,
+        uint32_t value,
+        void* _Nullable context HAP_UNUSED);
+
 
 /**
  * Handle read request to the 'ProgrammableSwitchEvent' characteristic of the Doorbell service.

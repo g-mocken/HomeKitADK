@@ -23,7 +23,7 @@ extern "C" {
 /**
  * Total number of services and characteristics contained in the accessory.
  */
-#define kAttributeCount ((size_t) 26 + 4)
+#define kAttributeCount ((size_t) 26 + 1 + 4)
 
 /**
  * HomeKit Accessory Information service.
