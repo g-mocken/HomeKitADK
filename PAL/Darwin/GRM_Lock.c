@@ -8,6 +8,8 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <termios.h>
+
 #include "HAP.h"
 
 #include "GRM_Lock.h"
@@ -25,12 +27,22 @@ void GRM_Pulse(void) {
 
 bool GRM_Ring(void) {
 
-	// both variants require 'r' + CR
-	char c = '.';
-	//int s = read(0, &c, 1);
-	int s=1; c=getchar();
+    int c;
+
+    static struct termios new_io;
+    static struct termios old_io;
+
+    tcgetattr(STDIN_FILENO, &old_io);
+    new_io = old_io;
+    new_io.c_lflag = new_io.c_lflag & ~(ECHO|ICANON);
+    new_io.c_cc[VMIN] = 1;
+    new_io.c_cc[VTIME]= 0;
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &new_io);
+
+    c=getchar(); // works in Terminal, but still requires extra CR in Eclipse console
 	HAPLogInfo(&kHAPLog_Default, "%s: Key pressed = %c\n", __func__, c);
 
-	return ((s == 1) && (c == 'r'));
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &old_io);
+	return (c == 'r');
 
 }
