@@ -98,6 +98,8 @@ static void LoadAccessoryState(void) {
         HAPAssert(err == kHAPError_Unknown);
         HAPFatalError();
     }
+    HAPLogInfo(&kHAPLog_Default, "current state = %u.",accessoryConfiguration.state.currentState);
+
     if (!found || numBytes != sizeof accessoryConfiguration.state) {
         if (found) {
             HAPLogError(&kHAPLog_Default, "Unexpected app state found in key-value store. Resetting to default.");
@@ -532,12 +534,13 @@ void currentReachesTargetState(void* _Nullable context HAP_UNUSED, size_t contex
    //		HAPAccessoryServerRaiseEvent(accessoryConfiguration.server, &lockMechanismLockCurrentStateCharacteristic, &lockMechanismService,
    //				&accessory);
    	AccessoryNotification(&accessory, &lockMechanismService,	&lockMechanismLockCurrentStateCharacteristic, NULL);
-
+    SaveAccessoryState();
+    HAPLogInfo(&kHAPLog_Default, "%s: New current state saved", __func__);
 
 }
 
 void responseTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void* _Nullable context HAP_UNUSED){
-	    HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback \n", __func__);
+	    HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback", __func__);
 		currentReachesTargetState( NULL, 0);
 }
 
@@ -571,14 +574,14 @@ void* mainFunction(void *ptr) {
 
 	char *message;
 	message = (char*) ptr;
-    HAPLogInfo(&kHAPLog_Default, "%s: Starting thread with message: %s \n", __func__, message);
+    HAPLogInfo(&kHAPLog_Default, "%s: Starting thread with message: %s", __func__, message);
 
 	while (!stopThreads) {
 
 		if (GRM_Ring()){ // blocking!
 			HAPError err = HAPPlatformRunLoopScheduleCallback(ringBell, NULL, 0); // required for IRQ/threads, but not for timers
 
-			HAPLogInfo(&kHAPLog_Default, "%s: RING triggered with error = %u\n", __func__, err);
+			HAPLogInfo(&kHAPLog_Default, "%s: RING triggered with error = %u", __func__, err);
 
 		}
 	}
