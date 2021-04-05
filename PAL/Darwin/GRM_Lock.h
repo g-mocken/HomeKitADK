@@ -9,10 +9,23 @@
 #define DARWIN_GRM_LOCK_H_
 
 #include <stdbool.h>
+#include <stdint.h>
+#include "HAP.h"
 
 void GRM_Unlock(void);
 void GRM_Lock(void);
 void GRM_Pulse(void);
-bool GRM_Ring(void);
+void GRM_Blocked(void);
+
+void GRM_Ringcode(bool enable);
+void GRM_SetVolume(uint8_t volume);
+
+void GRM_ReadConfiguration(char * ptrValue);
+
+void GRM_Inititalize(HAPAccessoryServerOptions* hapAccessoryServerOptions,
+        HAPPlatform* hapPlatform,
+        HAPAccessoryServerCallbacks* hapAccessoryServerCallbacks);
+
+void GRM_Deinititalize(void);
 
 #endif /* DARWIN_GRM_LOCK_H_ */

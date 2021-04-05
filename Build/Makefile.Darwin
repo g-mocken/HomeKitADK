@@ -26,7 +26,10 @@ CFLAGS_Darwin := $(CFLAGS_$(TARGET_FLAVOR)) $(CFLAGS_BLE) $(CFLAGS_IP)
 CFLAGS_Darwin += -DDARWIN=1 -Werror=unused-function
 CFLAGS_Darwin += -Wno-expansion-to-defined -Wno-nullability-completeness -Wno-deprecated-declarations
 CFLAGS_Darwin += -isysroot $(XCODE_SDK_PATH)
+CFLAGS_Darwin += -I/usr/local/include
 LDFLAGS_Darwin := $(addprefix -framework ,Foundation CoreBluetooth Network CoreGraphics ImageIO CoreServices)
+LDFLAGS_Darwin += -L/usr/local/lib -ljson-c
+
 ifeq ($(BUILD_TYPE),Release)
     LDFLAGS_Darwin += -dead_strip
 endif

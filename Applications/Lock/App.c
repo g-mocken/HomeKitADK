@@ -31,7 +31,6 @@
 
 #include "App.h"
 #include "DB.h"
-#include <pthread.h>
 #include <stdio.h>
 #include <inttypes.h>
 #include <unistd.h>
@@ -64,6 +63,7 @@ typedef struct {
         uint8_t volume;
         uint8_t button;
         uint32_t autoSecurityTimeout;
+        bool ringcodeOn;
     } state;
     HAPAccessoryServerRef* server;
     HAPPlatformKeyValueStoreRef keyValueStore;
@@ -98,7 +98,7 @@ static void LoadAccessoryState(void) {
         HAPAssert(err == kHAPError_Unknown);
         HAPFatalError();
     }
-    HAPLogInfo(&kHAPLog_Default, "current state = %u.",accessoryConfiguration.state.currentState);
+    HAPLogInfo(&kHAPLog_Default, "lock's current state = %u.",accessoryConfiguration.state.currentState);
 
     if (!found || numBytes != sizeof accessoryConfiguration.state) {
         if (found) {
@@ -108,7 +108,11 @@ static void LoadAccessoryState(void) {
         accessoryConfiguration.state.autoSecurityTimeout = 1; // non-zero default: 1s
         accessoryConfiguration.state.targetState = kHAPCharacteristicValue_LockTargetState_Secured; // non-zero default
         accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured; // non-zero default
+        accessoryConfiguration.state.ringcodeOn = false;
     }
+
+    GRM_SetVolume(accessoryConfiguration.state.volume);
+    GRM_Ringcode(accessoryConfiguration.state.ringcodeOn);
 }
 
 /**
@@ -149,6 +153,7 @@ static const HAPAccessory accessory = { .aid = 1,
                                                                                   &lockMechanismService,
                                                                                   &lockManagementService,
 																				  &doorbellService,
+																				  &ringcodeService,
                                                                                   NULL },
                                         .callbacks = { .identify = IdentifyAccessory } };
 
@@ -212,6 +217,7 @@ HAPError HandleLockMechanismLockTargetStateRead(
     }
     return kHAPError_None;
 }
+
 
 
  void responseTimerCallback(HAPPlatformTimerRef timer, void* _Nullable context);
@@ -444,7 +450,39 @@ HAPError HandleVolumeWrite(
     if (accessoryConfiguration.state.volume != targetVolume) {
         accessoryConfiguration.state.volume = targetVolume;
         HAPAccessoryServerRaiseEvent(server, request->characteristic, request->service, request->accessory);
+        GRM_SetVolume(value);
         SaveAccessoryState();
+    }
+
+    return kHAPError_None;
+}
+
+
+HAP_RESULT_USE_CHECK
+HAPError HandleRingcodeOnRead(
+        HAPAccessoryServerRef* server HAP_UNUSED,
+        const HAPBoolCharacteristicReadRequest* request HAP_UNUSED,
+        bool* value,
+        void* _Nullable context HAP_UNUSED) {
+    *value = accessoryConfiguration.state.ringcodeOn;
+    HAPLogInfo(&kHAPLog_Default, "%s: %s", __func__, *value ? "true" : "false");
+
+    return kHAPError_None;
+}
+
+HAP_RESULT_USE_CHECK
+HAPError HandleRingcodeOnWrite(
+        HAPAccessoryServerRef* server,
+        const HAPBoolCharacteristicWriteRequest* request,
+        bool value,
+        void* _Nullable context HAP_UNUSED) {
+    HAPLogInfo(&kHAPLog_Default, "%s: %s", __func__, value ? "true" : "false");
+    if (accessoryConfiguration.state.ringcodeOn != value) {
+        accessoryConfiguration.state.ringcodeOn = value;
+
+        SaveAccessoryState();
+        GRM_Ringcode(value);
+        HAPAccessoryServerRaiseEvent(server, request->characteristic, request->service, request->accessory);
     }
 
     return kHAPError_None;
@@ -517,8 +555,6 @@ void ringBell(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED)
 	// Notifications appear to be throttled to one ring every 60s!
 	accessoryConfiguration.state.button = 0; // 1 - accessoryConfiguration.state.button; // 0 = single press
 	AccessoryNotification(&accessory, &doorbellService,	&programmableSwitchEventCharacteristic, NULL);
-
-
 }
 
 void currentReachesTargetState(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED){
@@ -565,46 +601,41 @@ void autoSecurityTimeoutTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void
         }
 }
 
-volatile bool stopThreads = false;
+void openForRingcode(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED){
 
+	if (accessoryConfiguration.state.ringcodeOn) {
+		GRM_Pulse(); // pulse();
+		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Unsecured;
+		AccessoryNotification(&accessory, &lockMechanismService, &lockMechanismLockCurrentStateCharacteristic, NULL);
+		SaveAccessoryState();
+		HAPLogInfo(&kHAPLog_Default, "%s: New current state saved", __func__);
 
+		static HAPPlatformTimerRef lockTimer = 0;
 
-static pthread_t mainThread;
-void* mainFunction(void *ptr) {
+		HAPTime deadline = HAPPlatformClockGetCurrent() + 2 * 1000 * HAPMillisecond;
 
-	char *message;
-	message = (char*) ptr;
-    HAPLogInfo(&kHAPLog_Default, "%s: Starting thread with message: %s", __func__, message);
-
-	while (!stopThreads) {
-
-		if (GRM_Ring()){ // blocking!
-			HAPError err = HAPPlatformRunLoopScheduleCallback(ringBell, NULL, 0); // required for IRQ/threads, but not for timers
-
-			HAPLogInfo(&kHAPLog_Default, "%s: RING triggered with error = %u", __func__, err);
-
+		HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback, NULL);
+		if (err) {
+			HAPAssert(err == kHAPError_OutOfResources);
+			HAPLogError(&kHAPLog_Default, "Not enough timers available to register custom timer.");
+			HAPFatalError();
 		}
+	} else {
+		GRM_Blocked();
 	}
-	return NULL;
 }
 
 void AppInitialize(
-        HAPAccessoryServerOptions* hapAccessoryServerOptions HAP_UNUSED,
-        HAPPlatform* hapPlatform HAP_UNUSED,
-        HAPAccessoryServerCallbacks* hapAccessoryServerCallbacks HAP_UNUSED) {
-    /*no-op*/
+        HAPAccessoryServerOptions* hapAccessoryServerOptions,
+        HAPPlatform* hapPlatform,
+        HAPAccessoryServerCallbacks* hapAccessoryServerCallbacks) {
 
-
-	int result = pthread_create(&mainThread, NULL, mainFunction, (void*) "Main thread started.");
-	(void ) result;
+	GRM_Inititalize(hapAccessoryServerOptions,hapPlatform,hapAccessoryServerCallbacks);
 }
 
 void AppDeinitialize() {
-    /*no-op*/
 
-	stopThreads = true;
-	pthread_join(mainThread, NULL);
-
+	GRM_Deinititalize();
 }
 
 

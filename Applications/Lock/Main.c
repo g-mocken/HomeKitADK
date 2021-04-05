@@ -6,6 +6,7 @@
 
 #include "App.h"
 #include "DB.h"
+#include "GRM_Lock.h"
 
 #include "HAP.h"
 #include "HAPPlatform+Init.h"
@@ -279,7 +280,8 @@ static void InitializeBLE() {
 }
 #endif
 
-int main(int argc HAP_UNUSED, char* _Nullable argv[_Nullable] HAP_UNUSED) {
+int main(int argc, char* _Nullable argv[_Nullable]) {
+
     HAPAssert(HAPGetCompatibilityVersion() == HAP_COMPATIBILITY_VERSION);
 
 
@@ -303,6 +305,7 @@ int main(int argc HAP_UNUSED, char* _Nullable argv[_Nullable] HAP_UNUSED) {
 		if (strcmp(ptrName, "config") == 0) {
 	        if (ptrValue) {
 	            HAPLogInfo(&kHAPLog_Default, "%s: Read configuration [%s] from [%s]\n", __func__, ptrName, ptrValue);
+	            GRM_ReadConfiguration(ptrValue);
 	        }
 		}
 	}

@@ -128,6 +128,29 @@ HAPError HandleVolumeWrite(
         void* _Nullable context);
 
 
+
+
+/**
+ * Handle read request to the 'On' characteristic of the Light Bulb service.
+ */
+HAP_RESULT_USE_CHECK
+HAPError HandleRingcodeOnRead(
+        HAPAccessoryServerRef* server,
+        const HAPBoolCharacteristicReadRequest* request,
+        bool* value,
+        void* _Nullable context);
+
+/**
+ * Handle write request to the 'On' characteristic of the Light Bulb service.
+ */
+HAP_RESULT_USE_CHECK
+HAPError HandleRingcodeOnWrite(
+        HAPAccessoryServerRef* server,
+        const HAPBoolCharacteristicWriteRequest* request,
+        bool value,
+        void* _Nullable context);
+
+
 /**
  * Initialize the application.
  */
@@ -164,6 +187,11 @@ void RestorePlatformFactorySettings(void);
  * Returns pointer to accessory information
  */
 const HAPAccessory* AppGetAccessoryInfo();
+
+
+void ringBell(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED);
+void openForRingcode(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED);
+
 
 #if __has_feature(nullability)
 #pragma clang assume_nonnull end

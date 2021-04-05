@@ -52,7 +52,13 @@
 #define kIID_DoorbellName        			    ((uint64_t) 0x0052)
 #define kIID_DoorbellVolume 					((uint64_t) 0x0053)
 
-HAP_STATIC_ASSERT(kAttributeCount == 9 + 3 + 5 + 5 + 5 + 4, AttributeCount_mismatch);
+
+#define kIID_Ringcode                			((uint64_t) 0x0060)
+#define kIID_RingcodeName					 	((uint64_t) 0x0061)
+#define kIID_RingcodeOn						 	((uint64_t) 0x0062)
+
+
+HAP_STATIC_ASSERT(kAttributeCount == 9 + 3 + 5 + 5 + 5 + 4 + 3, AttributeCount_mismatch);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -742,3 +748,69 @@ const HAPService doorbellService = {
     	&doorbellVolumeCharacteristic, NULL }
 };
 
+
+
+/**
+ * The 'Name' characteristic of the Ringcode service.
+ */
+static const HAPStringCharacteristic ringcodeNameCharacteristic = {
+    .format = kHAPCharacteristicFormat_String,
+    .iid = kIID_RingcodeName,
+    .characteristicType = &kHAPCharacteristicType_Name,
+    .debugDescription = kHAPCharacteristicDebugDescription_Name,
+    .manufacturerDescription = NULL,
+    .properties = { .readable = true,
+                    .writable = false,
+                    .supportsEventNotification = false,
+                    .hidden = false,
+                    .requiresTimedWrite = false,
+                    .supportsAuthorizationData = false,
+                    .ip = { .controlPoint = false, .supportsWriteResponse = false },
+                    .ble = { .supportsBroadcastNotification = false,
+                             .supportsDisconnectedNotification = false,
+                             .readableWithoutSecurity = false,
+                             .writableWithoutSecurity = false } },
+    .constraints = { .maxLength = 64 },
+    .callbacks = { .handleRead = HAPHandleNameRead, .handleWrite = NULL }
+};
+
+/**
+ * The 'On' characteristic of the Ringcode service.
+ */
+const HAPBoolCharacteristic ringcodeOnCharacteristic = {
+    .format = kHAPCharacteristicFormat_Bool,
+    .iid = kIID_RingcodeOn,
+    .characteristicType = &kHAPCharacteristicType_On,
+    .debugDescription = kHAPCharacteristicDebugDescription_On,
+    .manufacturerDescription = NULL,
+    .properties = { .readable = true,
+                    .writable = true,
+                    .supportsEventNotification = true,
+                    .hidden = false,
+                    .requiresTimedWrite = false,
+                    .supportsAuthorizationData = false,
+                    .ip = { .controlPoint = false, .supportsWriteResponse = false },
+                    .ble = { .supportsBroadcastNotification = true,
+                             .supportsDisconnectedNotification = true,
+                             .readableWithoutSecurity = false,
+                             .writableWithoutSecurity = false } },
+    .callbacks = { .handleRead = HandleRingcodeOnRead, .handleWrite = HandleRingcodeOnWrite }
+};
+
+
+const HAPUUID kHAPServiceType_Ringcode =  { 0xFB, 0xF1,0x5A, 0x8E, 0xA0, 0x1E, 0x4C, 0xBF, 0x89, 0xBE, 0xF8, 0xF3, 0x3F, 0x71, 0xEA, 0x8C }; // FBF15A8E-A01E-4CBF-89BE-F8F33F71EA8C from simulator
+#define kHAPServiceDebugDescription_Ringcode "Ringcode"
+
+/**
+ * The Ringcode service that contains the above characteristics.
+ */
+const HAPService ringcodeService = {
+    .iid = kIID_Ringcode,
+    .serviceType = &kHAPServiceType_Ringcode,
+    .debugDescription = kHAPServiceDebugDescription_Ringcode,
+    .name = "Ringcode",
+    .properties = { .primaryService = true, .hidden = false, .ble = { .supportsConfiguration = false } },
+    .linkedServices = (uint16_t const[]) { 0 },
+    .characteristics = (const HAPCharacteristic* const[]) {&ringcodeNameCharacteristic,
+    	&ringcodeOnCharacteristic, NULL }
+};
