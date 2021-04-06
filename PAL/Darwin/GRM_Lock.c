@@ -109,32 +109,32 @@ void GRM_ReadConfiguration(char * ptrValue){
 
 	struct json_object *timeMinMax;
 
-	timeMinMax = json_object_object_get(jobj, "anyMin");
+	json_object_object_get_ex(jobj, "anyMin", &timeMinMax);
 	anyMin = json_object_get_int(timeMinMax);
-	timeMinMax = json_object_object_get(jobj, "anyMax");
+	json_object_object_get_ex(jobj, "anyMax", &timeMinMax);
 	anyMax = json_object_get_int(timeMinMax);
 	HAPLogInfo(&kHAPLog_Default, "any = %ld ... %ld", anyMin, anyMax);
 
-	timeMinMax = json_object_object_get(jobj, "shortMin");
+	json_object_object_get_ex(jobj, "shortMin", &timeMinMax);
 	shortMin = json_object_get_int(timeMinMax);
-	timeMinMax = json_object_object_get(jobj, "shortMax");
+	json_object_object_get_ex(jobj, "shortMax", &timeMinMax);
 	shortMax = json_object_get_int(timeMinMax);
 	HAPLogInfo(&kHAPLog_Default, "short = %ld ... %ld", shortMin, shortMax);
 
-	timeMinMax = json_object_object_get(jobj, "longMin");
+	json_object_object_get_ex(jobj, "longMin", &timeMinMax);
 	longMin = json_object_get_int(timeMinMax);
-	timeMinMax = json_object_object_get(jobj, "longMax");
+	json_object_object_get_ex(jobj, "longMax", &timeMinMax);
 	longMax = json_object_get_int(timeMinMax);
 	HAPLogInfo(&kHAPLog_Default, "long = %ld ... %ld", longMin, longMax);
 
-	timeMinMax = json_object_object_get(jobj, "veryLongMin");
+	json_object_object_get_ex(jobj, "veryLongMin", &timeMinMax);
 	veryLongMin = json_object_get_int(timeMinMax);
-	timeMinMax = json_object_object_get(jobj, "veryLongMax");
+	json_object_object_get_ex(jobj, "veryLongMax", &timeMinMax);
 	veryLongMax = json_object_get_int(timeMinMax);
 	HAPLogInfo(&kHAPLog_Default, "veryLong = %ld ... %ld", veryLongMin, veryLongMax);
 
 	struct json_object *codeArray, *codeEntry;
-	codeArray = json_object_object_get(jobj, "code");
+	json_object_object_get_ex(jobj, "code", &codeArray);
 	codeLength = json_object_array_length(codeArray);
 	HAPLogInfo(&kHAPLog_Default, "code len=%d",(int) codeLength);
 
