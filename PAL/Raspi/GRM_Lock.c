@@ -1,5 +1,5 @@
 /*
- * GRM_Lock.c / Darwin
+ * GRM_Lock.c / Raspi
  *
  *  Created on: 3 Apr 2021
  *      Author: mocken

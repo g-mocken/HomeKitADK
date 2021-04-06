@@ -1,5 +1,5 @@
 /*
- * GRM_Dooropener.h / Darwin
+ * GRM_Dooropener.h / Raspi
  *
  *  Created on: 3 Apr 2021
  *      Author: mocken
