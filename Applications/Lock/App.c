@@ -178,6 +178,17 @@ HAPError HandleLockMechanismLockCurrentStateRead(
         uint8_t* value,
         void* _Nullable context HAP_UNUSED) {
     HAPLogInfo(&kHAPLog_Default, "%s", __func__);
+
+	// update current state
+   	switch (GRM_GetState()) {
+   	case UNLOCKED:
+   		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Unsecured;
+   		break;
+   	case LOCKED:
+   		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured;
+   		break;
+   	}
+
     *value = accessoryConfiguration.state.currentState;
     switch (*value) {
         case kHAPCharacteristicValue_LockCurrentState_Secured: {
@@ -253,6 +264,7 @@ HAPError HandleLockMechanismLockTargetStateWrite(
         HAPPlatformTimerRef myTimer;
         HAPTime deadline = HAPPlatformClockGetCurrent() + 500 * HAPMillisecond;
 
+        // in any case, check the current state 500ms after setting the new target state
         HAPError err = HAPPlatformTimerRegister(
                 &myTimer, deadline, responseTimerCallback, context);
         if (err) {
@@ -263,46 +275,48 @@ HAPError HandleLockMechanismLockTargetStateWrite(
 
 		static HAPPlatformTimerRef lockTimer = 0;
 
-        if (targetState == kHAPCharacteristicValue_LockTargetState_Secured) {
-        	if (lockTimer != 0) HAPPlatformTimerDeregister(lockTimer);
-        }
+		if (targetState == kHAPCharacteristicValue_LockTargetState_Secured) {
+			// delete auto secure timer, if running
+			if (lockTimer != 0)
+				HAPPlatformTimerDeregister(lockTimer);
+			GRM_Lock();
 
-        if (targetState == kHAPCharacteristicValue_LockTargetState_Unsecured) {
+		} else if (targetState == kHAPCharacteristicValue_LockTargetState_Unsecured) {
 
-        	if (accessoryConfiguration.state.autoSecurityTimeout == 0) { // 0 means disabled: actively hold open until specified otherwise
+			if (accessoryConfiguration.state.autoSecurityTimeout == 0) { // 0 means disabled: actively hold open until specified otherwise
 
-        		GRM_Unlock(); // on();
+				GRM_Unlock(); // on();
 
-			} else if(accessoryConfiguration.state.autoSecurityTimeout == 1){ // only issue minimum pulse and leave it to door (it will actually take longer like 2s)
+			} else if (accessoryConfiguration.state.autoSecurityTimeout == 1) { // only issue minimum pulse and leave it to door (it will actually take longer like 2s)
 
 				GRM_Pulse(); // pulse();
 
-				HAPTime deadline =
-						HAPPlatformClockGetCurrent() + 2 * 1000 * HAPMillisecond;
+				HAPTime deadline = HAPPlatformClockGetCurrent() + 2 * 1000 * HAPMillisecond;
 
-				HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback, context);
+				HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback,
+						context);
 				if (err) {
 					HAPAssert(err == kHAPError_OutOfResources);
 					HAPLogError(&kHAPLog_Default, "Not enough timers available to register custom timer.");
 					HAPFatalError();
 				}
 
+			} else { // actively hold it open and close after specified time
 
-        	} else { // actively hold it open and close after specified time
-
-        		GRM_Unlock(); // on();
+				GRM_Unlock(); // on();
 
 				HAPTime deadline =
 						HAPPlatformClockGetCurrent() + accessoryConfiguration.state.autoSecurityTimeout * 1000 * HAPMillisecond;
 
-				HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback, context);
+				HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback,
+						context);
 				if (err) {
 					HAPAssert(err == kHAPError_OutOfResources);
 					HAPLogError(&kHAPLog_Default, "Not enough timers available to register custom timer.");
 					HAPFatalError();
 				}
 			}
-        }
+		}
 
 
     }
@@ -557,48 +571,45 @@ void ringBell(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED)
 	AccessoryNotification(&accessory, &doorbellService,	&programmableSwitchEventCharacteristic, NULL);
 }
 
-void currentReachesTargetState(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED){
-    // set current state to target state
-   	switch (accessoryConfiguration.state.targetState) {
-   	case kHAPCharacteristicValue_LockTargetState_Unsecured:
-   		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Unsecured;
-   		break;
-   	case kHAPCharacteristicValue_LockTargetState_Secured:
-   		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured;
-   		break;
-   	}
-   //		HAPAccessoryServerRaiseEvent(accessoryConfiguration.server, &lockMechanismLockCurrentStateCharacteristic, &lockMechanismService,
-   //				&accessory);
-   	AccessoryNotification(&accessory, &lockMechanismService,	&lockMechanismLockCurrentStateCharacteristic, NULL);
-    SaveAccessoryState();
-    HAPLogInfo(&kHAPLog_Default, "%s: New current state saved", __func__);
+
+void responseTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void *_Nullable context HAP_UNUSED) {
+	HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback", __func__);
+
+	// update current state
+	switch (GRM_GetState()) {
+	case UNLOCKED:
+		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Unsecured;
+		break;
+	case LOCKED:
+		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured;
+		break;
+	}
+	//		HAPAccessoryServerRaiseEvent(accessoryConfiguration.server, &lockMechanismLockCurrentStateCharacteristic, &lockMechanismService,
+	//				&accessory);
+	AccessoryNotification(&accessory, &lockMechanismService, &lockMechanismLockCurrentStateCharacteristic, NULL);
+	SaveAccessoryState();
+	HAPLogInfo(&kHAPLog_Default, "%s: New current state saved", __func__);
 
 }
 
-void responseTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void* _Nullable context HAP_UNUSED){
-	    HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback", __func__);
-		currentReachesTargetState( NULL, 0);
-}
-
-void autoSecurityTimeoutTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void* _Nullable context HAP_UNUSED){
-	    HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback \n", __func__);
-	    accessoryConfiguration.state.targetState = kHAPCharacteristicValue_LockTargetState_Secured;
-	    AccessoryNotification(&accessory, &lockMechanismService,	&lockMechanismLockTargetStateCharacteristic, NULL);
+void autoSecurityTimeoutTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void *_Nullable context HAP_UNUSED) {
+	HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback \n", __func__);
+	accessoryConfiguration.state.targetState = kHAPCharacteristicValue_LockTargetState_Secured;
+	AccessoryNotification(&accessory, &lockMechanismService, &lockMechanismLockTargetStateCharacteristic, NULL);
 //	    accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured;
 //	    AccessoryNotification(&accessory, &lockMechanismService,	&lockMechanismLockCurrentStateCharacteristic, NULL);
 
-	    GRM_Lock(); // off();
+	if (GRM_GetState() == UNLOCKED)	GRM_Lock(); // avoid double locking
 
-	    HAPPlatformTimerRef myTimer;
-        HAPTime deadline = HAPPlatformClockGetCurrent() + 500 * HAPMillisecond;
+	HAPPlatformTimerRef myTimer;
+	HAPTime deadline = HAPPlatformClockGetCurrent() + 500 * HAPMillisecond;
 
-        HAPError err = HAPPlatformTimerRegister(
-                &myTimer, deadline, responseTimerCallback, context);
-        if (err) {
-            HAPAssert(err == kHAPError_OutOfResources);
-            HAPLogError(&kHAPLog_Default, "Not enough timers available to register custom timer.");
-            HAPFatalError();
-        }
+	HAPError err = HAPPlatformTimerRegister(&myTimer, deadline, responseTimerCallback, context);
+	if (err) {
+		HAPAssert(err == kHAPError_OutOfResources);
+		HAPLogError(&kHAPLog_Default, "Not enough timers available to register custom timer.");
+		HAPFatalError();
+	}
 }
 
 void openForRingcode(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED){

@@ -18,15 +18,46 @@
 #include "../Applications/Lock/App.h"
 #include "GRM_Lock.h"
 
+
+GRM_state_t state = LOCKED;
+
+GRM_state_t GRM_GetState(void){
+
+	return state;
+}
+
 void GRM_Unlock(void) {
 	HAPLogInfo(&kHAPLog_Default, "%s: Start unlocking...", __func__);
+	state = UNLOCKED;
 }
 void GRM_Lock(void) {
 	HAPLogInfo(&kHAPLog_Default, "%s: Start locking...", __func__);
+	state = LOCKED;
+}
+
+
+
+static void* pulseFunction(void *ptr HAP_UNUSED) {
+
+	GRM_Unlock();
+
+#if 0
+    HAPTime start = HAPPlatformClockGetCurrent();
+    do {
+
+    } while (HAPPlatformClockGetCurrent() - start < 200 * HAPMillisecond);
+#else
+    usleep(200000);
+#endif
+
+    GRM_Lock();
+	return NULL;
 }
 
 void GRM_Pulse(void) {
 	HAPLogInfo(&kHAPLog_Default, "%s: Pulse for unlocking/locking...", __func__);
+	pthread_t pulseThread;
+	pthread_create(&pulseThread, NULL, pulseFunction, (void*) "pulse thread started.");
 }
 
 void GRM_Blocked(void){

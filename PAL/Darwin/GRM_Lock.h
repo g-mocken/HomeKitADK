@@ -12,6 +12,10 @@
 #include <stdint.h>
 #include "HAP.h"
 
+typedef enum {LOCKED, UNLOCKED} GRM_state_t;
+
+GRM_state_t GRM_GetState(void);
+
 void GRM_Unlock(void);
 void GRM_Lock(void);
 void GRM_Pulse(void);
