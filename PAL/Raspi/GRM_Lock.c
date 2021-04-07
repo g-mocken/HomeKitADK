@@ -113,11 +113,20 @@ void off(void) {
 	digitalWrite(opener, LOW);
 }
 
+static void* pulseFunction(void *ptr HAP_UNUSED) {
+	on();
+	delay(200);
+	off();
+	return NULL;
+}
+
 // unlock, then lock again
 void pulse(void) {
-	digitalWrite(opener, HIGH);
-	delay(200); // blocking HAP this long should be avoided?
-	digitalWrite(opener, LOW);
+	pthread_t pulseThread;
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	pthread_create(&pulseThread, &attr, pulseFunction, (void*) "pulse thread started.");
 }
 
 static void clean(ao_device *device, SNDFILE *file) {
@@ -280,7 +289,6 @@ bool blockBruteForce(long pressTimeMs) { // call only on press (not release)!
 void sendPushNotification(const char * push_message) {
 
 		fprintf(stderr, "Push: %s\n", push_message);
-
 }
 
 void ringBell2(long pressTimeMs) {
@@ -289,14 +297,18 @@ void ringBell2(long pressTimeMs) {
 
 	fprintf(stderr, "DINGDONG!\n"); // called after start of pressing, so pressTimeMs is actually a release time
 
+	HAPError err = HAPPlatformRunLoopScheduleCallback(ringBell, NULL, 0); // required for IRQ/threads, but not for timers
+	HAPLogInfo(&kHAPLog_Default, "%s: RING triggered with error = %u", __func__, err);
+
+
 	static struct timeval timeStart, timeEnd;
 	gettimeofday(&timeEnd, NULL);
 	long dt = ((timeEnd.tv_sec - timeStart.tv_sec) * 1000
 			+ (timeEnd.tv_usec - timeStart.tv_usec) / 1000);
 	timeStart = timeEnd;
 
-	if (dt > 10000)
-		sendPushNotification("Es hat an der Haustür geklingelt."); // combine multiple rings that occur within 10s into a single push
+	if (dt > 10000)  // combine multiple rings that occur within 10s into a single push
+		sendPushNotification("Es hat an der Haustür geklingelt.");
 
 	// but log them all
 	logEvent(EVENT_BELL);
@@ -316,10 +328,15 @@ void ringBell2(long pressTimeMs) {
  */
 void puzzleSolved(void){
 
+	// handle unlocking
+	
+	HAPError err = HAPPlatformRunLoopScheduleCallback(openForRingcode, NULL, 0); // required for IRQ/threads, but not for timers
+	HAPLogInfo(&kHAPLog_Default, "%s: CODE triggered with error = %u", __func__, err);
+
+	// handle audio, log and push
 	pthread_mutex_lock(&blockMutex);
 	bool b = block;
 	pthread_mutex_unlock(&blockMutex);
-
 	if (b) {
 		fprintf(stderr, "LOCKED!\n");
 		pthread_t audioThread;
@@ -339,7 +356,6 @@ void puzzleSolved(void){
 
 	} else {
 		fprintf(stderr, "UNLOCKED!\n");
-		pulse();
 		pthread_t audioThread;
 		int result = pthread_create(&audioThread, NULL, playAudioThread,
 				(void*) unlocked);
@@ -472,7 +488,6 @@ void risingISR(void) {
 
 void fallingISR(void) {
 	fprintf(stderr, "falling IRQ / button pressed\n");
-	// triggerISR();
 }
 
 /*
@@ -498,6 +513,7 @@ void dispatchISR(void) {
 			risingISR();
 		else
 			fallingISR();
+			
 		decodePattern(!current);
 	}
 	else { // ignore falling-falling and rising-rising
@@ -534,6 +550,31 @@ void GRM_Blocked(void){
 	HAPLogInfo(&kHAPLog_Default, "%s: Ringcode is blocked", __func__);
 }
 
+
+
+
+void GRM_SetVolume(uint8_t volume){
+	HAPLogInfo(&kHAPLog_Default, "%s: Bell volume set to %u", __func__, volume);
+	
+	pthread_mutex_lock(&blockMutex);
+	vol = volume;
+	pthread_mutex_unlock(&blockMutex);
+
+}
+
+void GRM_Ringcode(bool enable){
+	HAPLogInfo(&kHAPLog_Default, "%s: Ringcode %s", __func__, enable?"enabled":"disabled");
+	
+	pthread_mutex_lock(&blockMutex);
+	block = !enable;
+	pthread_mutex_unlock(&blockMutex);
+
+}
+
+#define CONSOLE_CONTROL 0
+
+#if CONSOLE_CONTROL
+
 static int getKeyPress(void) {
 
     int c;
@@ -557,26 +598,6 @@ static int getKeyPress(void) {
 
 }
 
-
-void GRM_SetVolume(uint8_t volume){
-	HAPLogInfo(&kHAPLog_Default, "%s: Bell volume set to %u", __func__, volume);
-	
-	pthread_mutex_lock(&blockMutex);
-	vol = volume;
-	pthread_mutex_unlock(&blockMutex);
-
-}
-
-void GRM_Ringcode(bool enable){
-	HAPLogInfo(&kHAPLog_Default, "%s: Ringcode %s", __func__, enable?"enabled":"disabled");
-	
-	pthread_mutex_lock(&blockMutex);
-	block = !enable;
-	pthread_mutex_unlock(&blockMutex);
-
-}
-
-
 volatile bool stopThreads = false;
 
 static pthread_t mainThread;
@@ -590,16 +611,15 @@ static void* mainFunction(void *ptr) {
 
 		int c = getKeyPress(); // blocking!
 		if (c =='r'){ // ring
-			HAPError err = HAPPlatformRunLoopScheduleCallback(ringBell, NULL, 0); // required for IRQ/threads, but not for timers
-			HAPLogInfo(&kHAPLog_Default, "%s: RING triggered with error = %u", __func__, err);
+		 	ringBell2(0);
 		} else if (c == 'c') { // code
-			HAPError err = HAPPlatformRunLoopScheduleCallback(openForRingcode, NULL, 0); // required for IRQ/threads, but not for timers
-			HAPLogInfo(&kHAPLog_Default, "%s: CODE triggered with error = %u", __func__, err);
+			puzzleSolved();
 		}
 	}
 	return NULL;
 }
 
+#endif
 
 
 void GRM_ReadConfiguration(char * ptrValue){
@@ -655,8 +675,6 @@ void GRM_ReadConfiguration(char * ptrValue){
 
 
 
-
-
 void GRM_Inititalize(HAPAccessoryServerOptions* hapAccessoryServerOptions HAP_UNUSED,
         HAPPlatform* hapPlatform HAP_UNUSED,
         HAPAccessoryServerCallbacks* hapAccessoryServerCallbacks HAP_UNUSED){
@@ -666,15 +684,19 @@ void GRM_Inititalize(HAPAccessoryServerOptions* hapAccessoryServerOptions HAP_UN
 
 	GRM_Lock(); // make sure it is locked initially
 
-
+#if CONSOLE_CONTROL
 	int result = pthread_create(&mainThread, NULL, mainFunction, (void*) "Main thread started.");
 	(void ) result;
-
+#endif
 }
 
 void GRM_Deinititalize(void){
 
+#if CONSOLE_CONTROL
+
 	stopThreads = true;
+
 	pthread_join(mainThread, NULL);
+#endif
 
 }
