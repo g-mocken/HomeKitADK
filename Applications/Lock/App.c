@@ -243,6 +243,8 @@ HAPError HandleLockMechanismLockTargetStateRead(
  void responseTimerCallback(HAPPlatformTimerRef timer, void* _Nullable context);
  void autoSecurityTimeoutTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void* _Nullable context HAP_UNUSED);
 
+static bool autoLockTimerActive = false;
+static HAPPlatformTimerRef lockTimer;
 
 /**
  * Handle write request to the 'Lock Target State' characteristic of the Lock Mechanism service.
@@ -282,11 +284,10 @@ HAPError HandleLockMechanismLockTargetStateWrite(
             HAPFatalError();
         }
 
-		static HAPPlatformTimerRef lockTimer = 0;
 
 		if (targetState == kHAPCharacteristicValue_LockTargetState_Secured) {
 			// delete auto secure timer, if running
-			if (lockTimer != 0)
+			if (autoLockTimerActive)
 				HAPPlatformTimerDeregister(lockTimer);
 			GRM_Lock();
 
@@ -304,6 +305,8 @@ HAPError HandleLockMechanismLockTargetStateWrite(
 
 				HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback,
 						context);
+				autoLockTimerActive = true;
+
 				if (err) {
 					HAPAssert(err == kHAPError_OutOfResources);
 					HAPLogError(&kHAPLog_Default, "Not enough timers available to register custom timer.");
@@ -319,6 +322,8 @@ HAPError HandleLockMechanismLockTargetStateWrite(
 
 				HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback,
 						context);
+				autoLockTimerActive = true;
+
 				if (err) {
 					HAPAssert(err == kHAPError_OutOfResources);
 					HAPLogError(&kHAPLog_Default, "Not enough timers available to register custom timer.");
@@ -595,6 +600,8 @@ void responseTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void *_Nullable
 }
 
 void autoSecurityTimeoutTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void *_Nullable context HAP_UNUSED) {
+	autoLockTimerActive = false;
+
 	HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback \n", __func__);
 	accessoryConfiguration.state.targetState = kHAPCharacteristicValue_LockTargetState_Secured;
 	AccessoryNotification(&accessory, &lockMechanismService, &lockMechanismLockTargetStateCharacteristic, NULL);
@@ -621,11 +628,10 @@ void openForRingcode(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_
 		SaveAccessoryState();
 		HAPLogInfo(&kHAPLog_Default, "%s: New current state saved", __func__);
 
-		static HAPPlatformTimerRef lockTimer = 0;
-
 		HAPTime deadline = HAPPlatformClockGetCurrent() + 2 * 1000 * HAPMillisecond;
 
 		HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback, NULL);
+		autoLockTimerActive = true;
 		if (err) {
 			HAPAssert(err == kHAPError_OutOfResources);
 			HAPLogError(&kHAPLog_Default, "Not enough timers available to register custom timer.");
