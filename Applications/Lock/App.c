@@ -287,8 +287,10 @@ HAPError HandleLockMechanismLockTargetStateWrite(
 
 		if (targetState == kHAPCharacteristicValue_LockTargetState_Secured) {
 			// delete auto secure timer, if running
-			if (autoLockTimerActive)
+			if (autoLockTimerActive){
 				HAPPlatformTimerDeregister(lockTimer);
+				autoLockTimerActive = false;
+			}
 			GRM_Lock();
 
 		} else if (targetState == kHAPCharacteristicValue_LockTargetState_Unsecured) {
