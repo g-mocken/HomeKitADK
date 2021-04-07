@@ -184,6 +184,8 @@ void GRM_Inititalize(HAPAccessoryServerOptions* hapAccessoryServerOptions HAP_UN
         HAPPlatform* hapPlatform HAP_UNUSED,
         HAPAccessoryServerCallbacks* hapAccessoryServerCallbacks HAP_UNUSED){
 
+	GRM_Lock(); // make sure it is locked initially
+
 	int result = pthread_create(&mainThread, NULL, mainFunction, (void*) "Main thread started.");
 	(void ) result;
 

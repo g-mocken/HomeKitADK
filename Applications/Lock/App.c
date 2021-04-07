@@ -73,6 +73,20 @@ static AccessoryConfiguration accessoryConfiguration;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+
+static void updateCurrentState(void) {
+	// update current state
+	switch (GRM_GetState()) {
+	case UNLOCKED:
+		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Unsecured;
+		break;
+	case LOCKED:
+		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured;
+		break;
+	}
+}
+
+
 /**
  * Load the accessory state from persistent memory.
  */
@@ -107,12 +121,14 @@ static void LoadAccessoryState(void) {
         HAPRawBufferZero(&accessoryConfiguration.state, sizeof accessoryConfiguration.state);
         accessoryConfiguration.state.autoSecurityTimeout = 1; // non-zero default: 1s
         accessoryConfiguration.state.targetState = kHAPCharacteristicValue_LockTargetState_Secured; // non-zero default
-        accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured; // non-zero default
         accessoryConfiguration.state.ringcodeOn = false;
     }
 
     GRM_SetVolume(accessoryConfiguration.state.volume);
     GRM_Ringcode(accessoryConfiguration.state.ringcodeOn);
+
+    updateCurrentState();
+
 }
 
 /**
@@ -179,15 +195,7 @@ HAPError HandleLockMechanismLockCurrentStateRead(
         void* _Nullable context HAP_UNUSED) {
     HAPLogInfo(&kHAPLog_Default, "%s", __func__);
 
-	// update current state
-   	switch (GRM_GetState()) {
-   	case UNLOCKED:
-   		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Unsecured;
-   		break;
-   	case LOCKED:
-   		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured;
-   		break;
-   	}
+    updateCurrentState();
 
     *value = accessoryConfiguration.state.currentState;
     switch (*value) {
@@ -575,15 +583,8 @@ void ringBell(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_UNUSED)
 void responseTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void *_Nullable context HAP_UNUSED) {
 	HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback", __func__);
 
-	// update current state
-	switch (GRM_GetState()) {
-	case UNLOCKED:
-		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Unsecured;
-		break;
-	case LOCKED:
-		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured;
-		break;
-	}
+	updateCurrentState();
+
 	//		HAPAccessoryServerRaiseEvent(accessoryConfiguration.server, &lockMechanismLockCurrentStateCharacteristic, &lockMechanismService,
 	//				&accessory);
 	AccessoryNotification(&accessory, &lockMechanismService, &lockMechanismLockCurrentStateCharacteristic, NULL);
@@ -596,8 +597,6 @@ void autoSecurityTimeoutTimerCallback(HAPPlatformTimerRef timer HAP_UNUSED, void
 	HAPLogInfo(&kHAPLog_Default, "%s: Starting timer callback \n", __func__);
 	accessoryConfiguration.state.targetState = kHAPCharacteristicValue_LockTargetState_Secured;
 	AccessoryNotification(&accessory, &lockMechanismService, &lockMechanismLockTargetStateCharacteristic, NULL);
-//	    accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Secured;
-//	    AccessoryNotification(&accessory, &lockMechanismService,	&lockMechanismLockCurrentStateCharacteristic, NULL);
 
 	if (GRM_GetState() == UNLOCKED)	GRM_Lock(); // avoid double locking
 
@@ -616,7 +615,7 @@ void openForRingcode(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_
 
 	if (accessoryConfiguration.state.ringcodeOn) {
 		GRM_Pulse(); // pulse();
-		accessoryConfiguration.state.currentState = kHAPCharacteristicValue_LockCurrentState_Unsecured;
+		updateCurrentState();
 		AccessoryNotification(&accessory, &lockMechanismService, &lockMechanismLockCurrentStateCharacteristic, NULL);
 		SaveAccessoryState();
 		HAPLogInfo(&kHAPLog_Default, "%s: New current state saved", __func__);
