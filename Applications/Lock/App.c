@@ -299,11 +299,11 @@ HAPError HandleLockMechanismLockTargetStateWrite(
 
 				GRM_Unlock(); // on();
 
-			} else if (accessoryConfiguration.state.autoSecurityTimeout == 1) { // only issue minimum pulse and leave it to door (it will actually take longer like 2s)
+			} else if (accessoryConfiguration.state.autoSecurityTimeout == 1) { // only issue minimum pulse and leave it to door (it will actually take longer like 6s)
 
 				GRM_Pulse(); // pulse();
 
-				HAPTime deadline = HAPPlatformClockGetCurrent() + 2 * 1000 * HAPMillisecond;
+				HAPTime deadline = HAPPlatformClockGetCurrent() + 6 * 1000 * HAPMillisecond;
 
 				HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback,
 						context);
@@ -630,7 +630,7 @@ void openForRingcode(void* _Nullable context HAP_UNUSED, size_t contextSize HAP_
 		SaveAccessoryState();
 		HAPLogInfo(&kHAPLog_Default, "%s: New current state saved", __func__);
 
-		HAPTime deadline = HAPPlatformClockGetCurrent() + 2 * 1000 * HAPMillisecond;
+		HAPTime deadline = HAPPlatformClockGetCurrent() + 6 * 1000 * HAPMillisecond;
 
 		HAPError err = HAPPlatformTimerRegister(&lockTimer, deadline, autoSecurityTimeoutTimerCallback, NULL);
 		autoLockTimerActive = true;
