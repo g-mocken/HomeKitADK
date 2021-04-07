@@ -627,7 +627,7 @@ const HAPUInt32Characteristic lockManagementAutoSecurityTimeoutCharacteristic = 
                              .readableWithoutSecurity = false,
                              .writableWithoutSecurity = false } },
     .constraints = {  	.minimumValue = 0,
-            			.maximumValue = 60,
+            			.maximumValue = 30,
 						.stepValue = 1 },
     .callbacks = { .handleRead = HandleLockManagementAutoSecurityTimeoutRead, .handleWrite = HandleLockManagementAutoSecurityTimeoutWrite }
 };
