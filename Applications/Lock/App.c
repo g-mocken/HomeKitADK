@@ -122,6 +122,7 @@ static void LoadAccessoryState(void) {
         accessoryConfiguration.state.autoSecurityTimeout = 1; // non-zero default: 1s
         accessoryConfiguration.state.targetState = kHAPCharacteristicValue_LockTargetState_Secured; // non-zero default
         accessoryConfiguration.state.ringcodeOn = false;
+        accessoryConfiguration.state.volume = 50;
     }
 
     GRM_SetVolume(accessoryConfiguration.state.volume);

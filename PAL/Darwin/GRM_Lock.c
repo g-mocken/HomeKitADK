@@ -57,7 +57,11 @@ static void* pulseFunction(void *ptr HAP_UNUSED) {
 void GRM_Pulse(void) {
 	HAPLogInfo(&kHAPLog_Default, "%s: Pulse for unlocking/locking...", __func__);
 	pthread_t pulseThread;
-	pthread_create(&pulseThread, NULL, pulseFunction, (void*) "pulse thread started.");
+
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	pthread_create(&pulseThread, &attr, pulseFunction, (void*) "pulse thread started.");
 }
 
 void GRM_Blocked(void){
