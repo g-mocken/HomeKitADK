@@ -186,7 +186,7 @@ int playAudio(char * filename, float volume) {
 	device = ao_open_live(default_driver, &format, NULL/*&option*/); // use default audio, setup alsa for dmix and mono!
 
 	if (device == NULL) {
-		fprintf(stderr, "Error opening device.\n");
+		HAPLogInfo(&kHAPLog_Default, "%s: Error opening device.", __func__);	
 		return 1;
 	}
 
@@ -208,7 +208,7 @@ int playAudio(char * filename, float volume) {
 
 		if (ao_play(device, (char *) buffer, (uint_32) (read * sizeof(short)))
 				== 0) {
-			fprintf(stderr, "ao_play: failed.\n");
+			HAPLogInfo(&kHAPLog_Default, "%s: ao_play: failed.", __func__);	
 			clean(device, file);
 			break;
 		}
@@ -239,27 +239,31 @@ void * playAudioThread(void *ptr) {
 
 	gettimeofday(&timeStart, NULL);
 
-	if (!playing) {
+	if (!playing) { // with a mutex, other calls would be kind of queued, this way, they return immediately
 		playing = true;
+		
 		if (strcmp((char*) ptr, unlocked) == 0
-				|| strcmp((char*) ptr, locked) == 0)
+				|| strcmp((char*) ptr, locked) == 0){
 			volume = maxVolume; // alway play the "Unlocked" sound at this volume
-		fprintf(stderr, "volume = %f\n", volume);
+		}
+		
+		HAPLogInfo(&kHAPLog_Default, "%s: volume = %u", __func__, (unsigned) (volume * relativeVolume * 100));	
+
 		playAudio((char*) ptr, volume * relativeVolume); // weighted with global volume
 		if (strcmp((char*) ptr, unlocked) == 0
-				|| strcmp((char*) ptr, locked) == 0)
+				|| strcmp((char*) ptr, locked) == 0){
 			volume = lowVolume; // after "Unlocked" start over at this volume
-
+		}
+		
 		playing = false;
 
 		if (volume < maxVolume)
-			volume *= 2.0;
+			volume *= 2.0; // double the volume at every step
 		else
-			volume = maxVolume; // max
+			volume = maxVolume; // but limit to maximum
 	} else {
-		fprintf(stderr, "IGNORING - audio still playing\n");
-
-	} // with a mutex, other calls would be kind of queued, this way, they return immediately
+		HAPLogInfo(&kHAPLog_Default, "%s: IGNORING - audio still playing", __func__);	
+	} 
 
 	return NULL;
 }
@@ -268,38 +272,33 @@ void * playAudioThread(void *ptr) {
 bool blockBruteForce(long pressTimeMs) { // call only on press (not release)!
 	bool allow = true;
 	static int count = 0;
-	if (pressTimeMs > 30000) // if released for 30s, re-allow unlocking
-			{
+	if (pressTimeMs > 30000){ // if released for 30s, re-allow unlocking
 		allow = true;
 		count = 0;
-		fprintf(stderr, "Unlocking re-allowed for 3 attempts!\n");
+		HAPLogInfo(&kHAPLog_Default, "%s: Unlocking re-allowed for 3 attempts", __func__);	
 	}
 	count++;
-	if (count > 3) {
-
+	if (count > 3){
 		allow = false; // after the third (i.e. at the fourth) ring, disallow unlocking the door for some time
 		count--; // prevent overflow, i.e. go back to 2
-		fprintf(stderr, "Unlocking disallowed for 30s!\n"); // called after start of pressing, so pressTimeMs is actually a release time
-
+		HAPLogInfo(&kHAPLog_Default, "%s: Unlocking disallowed for 30s", __func__);	// called after start of pressing, so pressTimeMs is actually a release time
 	}
-
 	return allow;
 }
 
 void sendPushNotification(const char * push_message) {
-
-		fprintf(stderr, "Push: %s\n", push_message);
+	HAPLogInfo(&kHAPLog_Default, "%s: DEPRECATED - Push: %s", __func__, push_message);
 }
 
 void ringBell2(long pressTimeMs) {
 
 	(void) pressTimeMs; // unused, suppress warning
+	// called after start of pressing, so pressTimeMs is actually a release time
 
-	fprintf(stderr, "DINGDONG!\n"); // called after start of pressing, so pressTimeMs is actually a release time
-
+	HAPLogInfo(&kHAPLog_Default, "%s: DING-DONG", __func__);
+	
 	HAPError err = HAPPlatformRunLoopScheduleCallback(ringBell, NULL, 0); // required for IRQ/threads, but not for timers
 	HAPLogInfo(&kHAPLog_Default, "%s: RING triggered with error = %u", __func__, err);
-
 
 	static struct timeval timeStart, timeEnd;
 	gettimeofday(&timeEnd, NULL);
@@ -317,7 +316,7 @@ void ringBell2(long pressTimeMs) {
 	int result = pthread_create(&audioThread, NULL, playAudioThread,
 			(void*) doorbell);
 	if (result) {
-		fprintf(stderr, "Error - pthread_create(playAudioThread) return code: %d\n", result);
+		HAPLogInfo(&kHAPLog_Default, "%s: Error - pthread_create(playAudioThread) return code: %d", __func__, result);
 	} else{
 		pthread_detach(audioThread);
 	}
@@ -338,14 +337,12 @@ void puzzleSolved(void){
 	bool b = block;
 	pthread_mutex_unlock(&blockMutex);
 	if (b) {
-		fprintf(stderr, "LOCKED!\n");
+		HAPLogInfo(&kHAPLog_Default, "%s: LOCKED!", __func__);
 		pthread_t audioThread;
 		int result = pthread_create(&audioThread, NULL, playAudioThread,
 				(void*) locked);
 		if (result) {
-			fprintf(stderr,
-					"Error - pthread_create(playAudioThread, locked) return code: %d\n",
-					result);
+			HAPLogInfo(&kHAPLog_Default, "%s: Error - pthread_create(playAudioThread, locked) return code: %d", __func__, result);
 		} else{
 			pthread_detach(audioThread);
 		}
@@ -355,14 +352,12 @@ void puzzleSolved(void){
 		logEvent(EVENT_LOCKED);
 
 	} else {
-		fprintf(stderr, "UNLOCKED!\n");
+		HAPLogInfo(&kHAPLog_Default, "%s: UNLOCKED!", __func__);
 		pthread_t audioThread;
 		int result = pthread_create(&audioThread, NULL, playAudioThread,
 				(void*) unlocked);
 		if (result) {
-			fprintf(stderr,
-					"Error - pthread_create(playAudioThread, unlocked) return code: %d\n",
-					result);
+			HAPLogInfo(&kHAPLog_Default, "%s: Error - pthread_create(playAudioThread, unlocked) return code: %d", __func__, result);
 		} else{
 			pthread_detach(audioThread);
 		}
@@ -375,7 +370,7 @@ void puzzleSolved(void){
 
 
 
-void decodePattern(bool press) { // bei press (true) und release (false) aufrufen
+void decodePattern(bool press) { // call for press (true) and release (false) of bell button
 	static struct timeval timeStart, timeEnd;
 
 
@@ -384,32 +379,25 @@ void decodePattern(bool press) { // bei press (true) und release (false) aufrufe
 			+ (timeEnd.tv_usec - timeStart.tv_usec) / 1000);
 	timeStart = timeEnd;
 
-	fprintf(stderr, "%s time was = %ld ms = ", !press ? "press" : "release",
+	HAPLogInfo(&kHAPLog_Default, "%s: %s time was = %ld ms = ", __func__, (!press ? "press" : "release"),
 			pressTimeMs); // !press, because we lag behind
-	// NOTE: first value of pressTimeMs will be large negative
+			
+	// NOTE: first value of pressTimeMs (after startup or long idle time) can be anything (even overflow to negative), but it is ignored in the state machine
 
 	/* NEED TO DEBOUNCE! And need to distinguish falling and rising IRQs properly.
 	 * Reading the input at the beginning of the ISR may be too slow, i.e. the level is no longer the one that triggered the IRQ.
-	 * Workaround: use two inputs in parallel, one ofr rising, another one for falling edge detection. */
+	 * Possible workaround: use two inputs in parallel, one for rising, another one for falling edge detection. */
 
+
+	bool isAny = (pressTimeMs <= anyMax) && (pressTimeMs >= anyMin); // upper limit anyMax ensures that no state is kept forever: when anyMax is exceeded when expecting ANY duration, the next press/release event leads to the RING state
+	bool isShort = (pressTimeMs <= shortMax) && (pressTimeMs >= shortMin); // e.g. less than half a second
+	bool isLong = (pressTimeMs <= longMax) && (pressTimeMs >= longMin); // e.g. about one seconds
+	bool isVeryLong = (pressTimeMs <= veryLongMax) && (pressTimeMs >= veryLongMin); // e.g. about two seconds
 	
-
-	bool isAny = (pressTimeMs <= anyMax) && (pressTimeMs >= anyMin); // nach oben begrenzt, damit kein Zustand ewig stehenbleiben kann! Nach spätestens 10s matched auch Any nicht mehr, d.h. ein press-Event führt zum state RING.
-
-	bool isShort = (pressTimeMs <= shortMax) && (pressTimeMs >= shortMin); // less than half a second
-	bool isLong = (pressTimeMs <= longMax) && (pressTimeMs >= longMin); // about one seconds
-	bool isVeryLong = (pressTimeMs <= veryLongMax) && (pressTimeMs >= veryLongMin); // about two seconds
-
-
-	fprintf(stderr, "%s \n",
-			isVeryLong ?
-					"very long" :
-					(isLong ? "long" : (isShort ? "short" : "other")));
+	HAPLogInfo(&kHAPLog_Default, "%s: %s", __func__, (isVeryLong ? "very long" : (isLong ? "long" : (isShort ? "short" : "other"))));
 
 	bool release = !press;
-	static bool allow = true; // set to false if too many tried in too short a time (prevents brute force attack)
-
-// flexible new variant
+	static bool allow = true; // set to false if too many tries in too short a time (prevents brute force attack)
 
 	bool checks[4]={[CODE_ANY]=isAny, [CODE_SHORT]=isShort,[CODE_LONG]=isLong,[CODE_VERYLONG]=isVeryLong};
 
@@ -471,23 +459,19 @@ void decodePattern(bool press) { // bei press (true) und release (false) aufrufe
 			}
 		}
 	} else {
-		fprintf(stderr, "state overflow error"); // this should not ever happen - sizeof(code) must be odd (odd number of press times plus even number of release times)
+		HAPLogInfo(&kHAPLog_Default, "%s: state overflow error", __func__); // this should not ever happen - sizeof(code) must be odd (odd number of press times plus even number of release times)
 		numericalState = 0;
 	}
-	fprintf(stderr, "state=%d, allow=%d\n", numericalState, allow);
-
-
+	HAPLogInfo(&kHAPLog_Default, "%s: state=%d, allow=%d", __func__, numericalState, allow);	
 }
-
-
 
 
 void risingISR(void) {
-	fprintf(stderr, "rising IRQ / button released\n");
+	HAPLogInfo(&kHAPLog_Default, "%s: rising IRQ / button released", __func__);	
 }
 
 void fallingISR(void) {
-	fprintf(stderr, "falling IRQ / button pressed\n");
+	HAPLogInfo(&kHAPLog_Default, "%s: falling IRQ / button pressed", __func__);	
 }
 
 /*
